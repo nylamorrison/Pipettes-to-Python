@@ -30,7 +30,7 @@ Expect to find:
 ## Why This Exists
 
 I'm building toward projects focused on drug discovery, AI, and synthetic biology.  
-This repo is part of my hands-on journey—learning by doing, one line of code at a time.
+This repo is part of my hands-on journey, learning by doing, one line of code at a time.
 
 ---
 
