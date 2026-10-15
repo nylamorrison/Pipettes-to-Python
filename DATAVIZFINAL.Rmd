@@ -1,0 +1,317 @@
+---
+title: "Data Viz Final Project"
+author: "Nyla Morrison"
+date: "2025-10-30"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(readr)
+library(dplyr)
+housingdata <- read_csv("Downloads/global_house_purchase_dataset.csv")
+View(housingdata)
+```
+
+
+
+```{r}
+colSums(is.na(housingdata))
+str(housingdata)
+summary(housingdata)
+```
+
+```{r}
+library(dplyr); library(tidyr); library(ggplot2)
+
+df <- housingdata %>%
+  mutate(
+    neighbourhood_rating = as.numeric(as.character(neighbourhood_rating)),
+    satisfaction_score   = as.numeric(as.character(satisfaction_score))
+  )
+
+plot_df <- df %>%
+  filter(!is.na(neighbourhood_rating), !is.na(satisfaction_score)) %>%
+  group_by(neighbourhood_rating) %>%
+  summarise(avg_satisfaction = mean(satisfaction_score), .groups="drop") %>%
+  complete(neighbourhood_rating = 1:10)   # show 1–10 on the x-axis
+
+ggplot(plot_df, aes(neighbourhood_rating, avg_satisfaction)) +
+  geom_line(color="blue") +
+  geom_point() +
+  scale_x_continuous(breaks=1:10, limits=c(1,10)) +
+  labs(x="Neighborhood Rating (1–10)", y="Average Satisfaction")
+
+
+```
+
+
+
+```{r}
+
+library(dplyr)
+library(vcd)
+
+data <- housingdata %>%
+  mutate(
+    neighborhood_category = cut(neighbourhood_rating, 
+                                 breaks = c(0, 3, 6, 10),
+                                 labels = c("Low (1-3)", "Medium (4-6)", "High (7-10)"),
+                                 include.lowest = TRUE),
+    satisfaction_category = cut(satisfaction_score,
+                               breaks = c(0, 3, 6, 10),
+                               labels = c("Low (1-3)", "Medium (4-6)", "High (7-10)"),
+                               include.lowest = TRUE)
+  )
+
+
+contingency_table <- table(data$neighborhood_category, data$satisfaction_category)
+print(contingency_table)
+
+
+mosaicplot(contingency_table,
+           main = "Relationship between Neighborhood Rating and Satisfaction Score",
+           xlab = "Neighborhood Rating Category",
+           ylab = "Satisfaction Score Category",
+           color = c("#edf8fb", "#b2e2e2", "#66c2a4", "#238b45"),
+           las = 1,)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+df <- housingdata %>%
+  mutate(
+    property_type = as.factor(property_type)
+  )
+
+bertin_df <- df %>%
+  group_by(property_type) %>%
+  summarise(
+    avg_neighborhood = mean(neighbourhood_rating, na.rm = TRUE),
+    avg_connectivity  = mean(connectivity_score, na.rm = TRUE),
+    avg_satisfaction  = mean(satisfaction_score, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+bertin_melt <- bertin_df %>%
+  pivot_longer(
+    cols = starts_with("avg_"),
+    names_to = "Metric",
+    values_to = "Average"
+  )
+
+ggplot(bertin_melt, aes(x = Metric, y = property_type, fill = Average)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "darkblue") +
+  labs(
+    title = "Average Lifestyle Metrics by Property Type",
+    x = "Metric",
+    y = "Property Type",
+    fill = "Average Value"
+  ) +
+  theme_minimal()
+
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+#Group by property type
+bertin_raw <- housingdata %>%
+  group_by(property_type) %>%
+  summarise(
+    avg_neighbourhood = mean(neighbourhood_rating, na.rm = TRUE),
+    avg_connectivity  = mean(connectivity_score,  na.rm = TRUE),
+    avg_satisfaction  = mean(satisfaction_score,  na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#Pivot and change
+bertin_long <- bertin_raw %>%
+  pivot_longer(
+    cols = starts_with("avg_"),
+    names_to  = "Metric",
+    values_to = "Average"
+  ) %>%
+  mutate(
+    Metric = recode(
+      Metric,
+      "avg_neighbourhood" = "Neighborhood Rating",
+      "avg_connectivity"  = "Connectivity",
+      "avg_satisfaction"  = "Satisfaction"
+    )
+  ) %>%
+  group_by(Metric) %>%
+  mutate(
+    z_value = (Average - mean(Average)) / sd(Average)
+  ) %>%
+  ungroup()
+
+# Heatmap
+ggplot(bertin_long, aes(x = Metric, y = property_type, fill = z_value)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Average, 2)), size = 3) +
+  scale_fill_gradient2(
+    low = "#4575b4", mid = "white", high = "#d73027",
+    midpoint = 0,
+    name = "Stdev."
+  ) +
+  labs(
+    title = "Average Lifestyle Metrics by Property Type",
+    x = "Metric",
+    y = "Property Type"
+  ) +
+  theme_minimal()
+
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+#Group by property type
+bertin_raw <- housingdata %>%
+  group_by(property_type) %>%
+  summarise(
+    avg_neighbourhood = mean(neighbourhood_rating, na.rm = TRUE),
+    avg_connectivity  = mean(connectivity_score,  na.rm = TRUE),
+    avg_satisfaction  = mean(satisfaction_score,  na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Pivot and change names
+bertin_long <- bertin_raw %>%
+  pivot_longer(
+    cols = starts_with("avg_"),
+    names_to  = "Metric",
+    values_to = "Average"
+  ) %>%
+  mutate(
+    Metric = recode(Metric,
+      "avg_neighbourhood" = "Neighborhood Rating",
+      "avg_connectivity"  = "Connectivity",
+      "avg_satisfaction"  = "Satisfaction"
+    )
+  )
+
+#heatmap + colors + labels
+ggplot(bertin_long, aes(x = Metric, y = property_type, fill = Average)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Average, 2)), size = 3) +
+    scale_fill_gradient(low = "white", high = "#4575b4") +
+  labs(
+    title = "Average Lifestyle Metrics by Property Type",
+    x = "Metric",
+    y = "Property Type"
+  ) +
+  theme_minimal()
+
+
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# 1. Summarise by property type *and* country
+bertin_raw <- housingdata %>%
+  group_by(country, property_type) %>%
+  summarise(
+    avg_neighbourhood = mean(neighbourhood_rating, na.rm = TRUE),
+    avg_connectivity  = mean(connectivity_score,  na.rm = TRUE),
+    avg_satisfaction  = mean(satisfaction_score,  na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 2. Pivot longer
+bertin_long <- bertin_raw %>%
+  pivot_longer(
+    cols = starts_with("avg_"),
+    names_to  = "Metric",
+    values_to = "Average"
+  ) %>%
+  mutate(
+    Metric = recode(
+      Metric,
+      "avg_neighbourhood" = "Neighborhood Rating",
+      "avg_connectivity"  = "Connectivity",
+      "avg_satisfaction"  = "Satisfaction"
+    )
+  )
+
+# 3. Faceted Bertin-style heatmap
+ggplot(bertin_long, aes(x = Metric, y = property_type, fill = Average)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Average, 2)), size = 2.8) +
+  scale_fill_gradient(low = "white", high = "#4575b4", name = "Average") +
+  labs(
+    title = "Average Lifestyle Metrics by Property Type and Country",
+    x = "Metric",
+    y = "Property Type"
+  ) +
+  facet_wrap(~ country) +
+  theme_minimal()
+
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# 1. Summarise by country
+bertin_country_raw <- housingdata %>%
+  group_by(country) %>%
+  summarise(
+    avg_neighbourhood = mean(neighbourhood_rating, na.rm = TRUE),
+    avg_connectivity  = mean(connectivity_score,  na.rm = TRUE),
+    avg_satisfaction  = mean(satisfaction_score,  na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 2. Pivot longer for plotting
+bertin_country_long <- bertin_country_raw %>%
+  pivot_longer(
+    cols = starts_with("avg_"),
+    names_to  = "Metric",
+    values_to = "Average"
+  ) %>%
+  mutate(
+    Metric = recode(
+      Metric,
+      "avg_neighbourhood" = "Neighborhood Rating",
+      "avg_connectivity"  = "Connectivity",
+      "avg_satisfaction"  = "Satisfaction"
+    )
+  )
+
+# 3. Plot heatmap by country
+ggplot(bertin_country_long, aes(x = Metric, y = country, fill = Average)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Average, 2)), size = 3) +
+  scale_fill_gradient(low = "white", high = "#4575b4", name = "Average") +
+  labs(
+    title = "Average Neighborhood, Connectivity, and Satisfaction by Country",
+    x = "Metric",
+    y = "Country"
+  ) +
+  theme_minimal()
+
+```
+
+
